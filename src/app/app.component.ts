@@ -42,14 +42,7 @@ export class AppComponent implements AfterViewInit{
     for (let currRow = 0; currRow < numRows; currRow++) {
       const currentRowPegs = [];
       for (let currCol = 0; currCol < numCols; currCol++) {
-        if(currRow % 2 === 0)
-        {
-          const x = startXPos + xSpacing * (currRow % 2 === 0 ? currCol + 0.5 : currCol);
-          const y = startYPos + ySpacing * currRow;
-          currentRowPegs.push(new Peg(x, y));
-          continue;
-        }
-
+        // Shift the starting x pos by half a column for every second row
         const x = startXPos + xSpacing * (currRow % 2 === 0 ? currCol + 0.5 : currCol);
         const y = startYPos + ySpacing * currRow;
         currentRowPegs.push(new Peg(x, y));
@@ -64,7 +57,7 @@ export class AppComponent implements AfterViewInit{
     allPegs.forEach(colPegs => {
       colPegs.forEach(peg => {
         let obj = new PIXI.Graphics();
-        obj.beginFill(0xff0000)
+        obj.beginFill(0xff0000) // #TODO replace with constant
         .drawCircle(peg.x, peg.y, 5);
 
         // Add it to the stage to render
@@ -75,13 +68,14 @@ export class AppComponent implements AfterViewInit{
 
   renderContainers(canavasHeight: number, canavasWidth: number, pointContainerValues: number[], canvas: PIXI.Application) {
     const containerWidth = canavasWidth / pointContainerValues.length;
-    const containerHeight = 40; // Set to a random value I thought would be nice
+    const containerHeight = 40; // Set to a random value I thought would be nice - #TODO replace with constant
+    const halfContainerWidth = containerWidth / 2
     
     this.pointContainers = pointContainerValues.map((containerValue, index) => new PointContainer(index * containerWidth, containerWidth + (index * containerWidth), canavasHeight - containerHeight, canavasHeight, containerValue));
 
     this.pointContainers.forEach(container => {
-      let obj = new PIXI.Graphics();
-        obj.beginFill("red")
+      let containerObj = new PIXI.Graphics();
+        containerObj.beginFill("red") // #TODO replace with constant
         .moveTo(container.startXPos, container.startYPos)
         .lineTo(container.startXPos, container.endYPos)
         .lineTo(container.endXPos, container.endYPos)
@@ -90,10 +84,24 @@ export class AppComponent implements AfterViewInit{
         .lineTo(container.endXPos - 5, container.endYPos - 5)
         .lineTo(container.startXPos + 5, container.endYPos - 5)
         .lineTo(container.startXPos + 5, container.startYPos)
-        .lineTo(container.startXPos, container.startYPos);
+        .lineTo(container.startXPos, container.startYPos)
+        .endFill();
+
+        let textObj = new PIXI.Text(`${container.value}`,
+          {
+            fontFamily: 'Arial',
+            fontSize: 24,
+            fill: 0xff1010, // #TODO replace with constant
+            align: 'center',
+        });
+
+        // Need to center align text of the container it is in
+        textObj.position.x = container.endXPos - halfContainerWidth - (textObj.width / 2);
+        textObj.position.y = container.endYPos - halfContainerWidth;
 
         // Add it to the stage to render
-        canvas.stage.addChild(obj);
+        canvas.stage.addChild(containerObj);
+        canvas.stage.addChild(textObj);
     });
   }
 }

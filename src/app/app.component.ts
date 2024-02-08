@@ -18,6 +18,8 @@ export class AppComponent implements AfterViewInit{
   bottomPadding: number = 80;
   pointContainerValues: number[] = [10, 5, 2, 1, 0, 1, 2, 5, 10];
   pointContainers: PointContainer[] = [];
+  pegColour: string = 'white';
+  containerColour: string = 'gray';
 
   constructor() {}
 
@@ -57,7 +59,7 @@ export class AppComponent implements AfterViewInit{
     allPegs.forEach(colPegs => {
       colPegs.forEach(peg => {
         let obj = new PIXI.Graphics();
-        obj.beginFill(0xff0000) // #TODO replace with constant
+        obj.beginFill(this.pegColour)
         .drawCircle(peg.x, peg.y, 5);
 
         // Add it to the stage to render
@@ -75,7 +77,7 @@ export class AppComponent implements AfterViewInit{
 
     this.pointContainers.forEach(container => {
       let containerObj = new PIXI.Graphics();
-        containerObj.beginFill("red") // #TODO replace with constant
+        containerObj.beginFill(this.containerColour)
         .moveTo(container.startXPos, container.startYPos)
         .lineTo(container.startXPos, container.endYPos)
         .lineTo(container.endXPos, container.endYPos)
@@ -91,7 +93,7 @@ export class AppComponent implements AfterViewInit{
           {
             fontFamily: 'Arial',
             fontSize: 24,
-            fill: 0xff1010, // #TODO replace with constant
+            fill: this.containerColour,
             align: 'center',
         });
 

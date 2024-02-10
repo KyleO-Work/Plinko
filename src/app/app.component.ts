@@ -1,7 +1,8 @@
-import { AfterViewInit, Component, ElementRef, OnInit, ViewChild } from '@angular/core';
+import { AfterViewInit, Component, ViewChild } from '@angular/core';
 import * as PIXI from 'pixi.js';
 import { Peg } from 'src/models/peg.model';
 import { PointContainer } from 'src/models/point-container.model';
+import {getRandomNumber } from 'src/helpers/math.helpers';
 
 @Component({
   selector: 'app-root',
@@ -121,7 +122,7 @@ export class AppComponent implements AfterViewInit{
       ballObj.beginFill(this.ballColour)
         .drawCircle(0, 0, ballRadius); // NB: Setting the anchor positioning of the object affects its position so set it to 0,0 - top left
 
-        ballObj.position.set(this.getRandomNumber(this.leftPadding, canavasWidth - this.rightPadding), 10);
+        ballObj.position.set(getRandomNumber(this.leftPadding, canavasWidth - this.rightPadding), 10);
 
         canvas.stage.addChild(ballObj);
         return ballObj
@@ -146,7 +147,6 @@ export class AppComponent implements AfterViewInit{
       const collidedWithPeg = this.checkCollisionWithPeg(ballObj, pegs);
       if(collidedWithPeg)
       {
-        console.log('yaaaaaay')
         let shiftDistance = 10 * (Math.random() < 0.5 ? -1 : 1);
         if(ballObj.position.x + shiftDistance + ballBounds.width <= 0 || ballObj.position.x + shiftDistance + ballBounds.width >= this.canavasWidth)
         {
@@ -159,8 +159,8 @@ export class AppComponent implements AfterViewInit{
 
       if(collidingPointContainer){
         this.allowBallMovement = false;
+        ballObj.position.y = collidingPointContainer.endYPos - this.pointContainerThickness - (ballBounds.height / 2);
         this.scorePlayer(collidingPointContainer);
-
       }
 
       ballObj.position.y += 1;
@@ -179,7 +179,7 @@ export class AppComponent implements AfterViewInit{
 
     this.playerScoreBalance -= this.playCost;
     this.allowBallMovement = true;
-    this.ballObject.position.set(this.getRandomNumber(this.leftPadding, this.canavasWidth - this.rightPadding), this.getRandomNumber(this.pointContainerThickness, this.topPadding - this.pointContainerThickness));
+    this.ballObject.position.set(getRandomNumber(this.leftPadding, this.canavasWidth - this.rightPadding), getRandomNumber(this.pointContainerThickness, this.topPadding - this.pointContainerThickness));
   }
 
   //#region PixiJS collision detection methods
@@ -211,8 +211,4 @@ export class AppComponent implements AfterViewInit{
   }
 
   //#endregion
-
-  getRandomNumber(min: number, max: number) {
-    return Math.floor(Math.random() * (max - min + 1)) + min;
-  }
 }

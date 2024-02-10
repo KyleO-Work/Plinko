@@ -1,0 +1,15 @@
+.flex {
+    display: flex;
+}
+
+.flex-1 {
+    flex: 1;
+}
+
+.flex-column {
+    flex-direction: column;
+}
+
+.pl-2 {
+    padding-left: 2rem;
+}

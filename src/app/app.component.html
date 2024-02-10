@@ -1,4 +1,10 @@
-<div>Here</div>
-<div #canavs>
-
+<h1>Plinko</h1>
+<div class="flex">
+    <div #canavs></div>
+    <div class="flex flex-column flex-1 pl-2">
+        <div>Player's balance: {{playerScoreBalance}}</div>
+        <div>
+            <button (click)="startGame()" [disabled]="playerScoreBalance - playCost < 0">Play</button>
+        </div>
+    </div>
 </div>

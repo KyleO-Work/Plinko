@@ -44,6 +44,8 @@ export class AppComponent implements AfterViewInit{
     this.renderCanvas();
   }
 
+  //#region Game loop logic
+
   renderCanvas() {
     const canavasHeight = this.chosenLayoutType == LayoutType.Grid ? this.canavasHeightForGrid : this.canavasHeightForPyramid;
     const canavasWidth = this.chosenLayoutType == LayoutType.Grid ? this.canavasWidthForGrid : this.canavasWidthForPyramid;
@@ -195,6 +197,45 @@ export class AppComponent implements AfterViewInit{
     });
   }
 
+  getExpectedWinningPointContainer() {
+    return this.pointContainers[getRandomNumber(0, this.pointContainers.length)];
+  }
+  
+  applyBallXShift(ballObj: PIXI.Graphics, canvasWidth: number) {
+    let shiftDistance = 0;
+    let ballBounds = ballObj.getBounds();
+
+    if(this.chooseBallFallDirectionAtRandom)
+    {
+      shiftDistance = ballBounds.width * (Math.random() < 0.5 ? -1 : 1);
+    }
+    else{
+      const expectedWinningContainerXCenter = this.expectedWinningPointContainer?.startXPos + (this.expectedWinningPointContainer?.renderObject.getBounds().width / 2)
+      if(ballObj.position.x < expectedWinningContainerXCenter)
+      {
+        shiftDistance = ballBounds.width;
+      }
+      else if(ballObj.position.x > expectedWinningContainerXCenter)
+      {
+        shiftDistance = -ballBounds.width;
+      } else{
+        shiftDistance = ballBounds.width * (Math.random() < 0.5 ? -1 : 1);
+      }
+    }
+    
+    
+    if(ballObj.position.x + shiftDistance + ballBounds.width <= 0 || ballObj.position.x + shiftDistance + ballBounds.width >= canvasWidth)
+    {
+      shiftDistance = shiftDistance * -1;
+    }
+    ballObj.position.x = ballObj.position.x + shiftDistance;
+  }
+
+  //#endregion
+
+
+  //#region Player controls
+
   scorePlayer(pointContainer: PointContainer) {
     this.playerScoreBalance += pointContainer.value;
   }
@@ -218,39 +259,7 @@ export class AppComponent implements AfterViewInit{
     this.renderCanvas();
   }
 
-  getExpectedWinningPointContainer() {
-    return this.pointContainers[getRandomNumber(0, this.pointContainers.length)];
-  }
-  
-  applyBallXShift(ballObj: PIXI.Graphics, canvasWidth: number) {
-    let shiftDistance = 0;
-    let ballBounds = ballObj.getBounds();
-
-    if(this.chooseBallFallDirectionAtRandom)
-    {
-      shiftDistance = 16 * (Math.random() < 0.5 ? -1 : 1);
-    }
-    else{
-      const expectedWinningContainerXCenter = this.expectedWinningPointContainer?.startXPos + (this.expectedWinningPointContainer?.renderObject.getBounds().width / 2)
-      if(ballObj.position.x < expectedWinningContainerXCenter)
-      {
-        shiftDistance = 16;
-      }
-      else if(ballObj.position.x > expectedWinningContainerXCenter)
-      {
-        shiftDistance = -16;
-      } else{
-        shiftDistance = 16 * (Math.random() < 0.5 ? -1 : 1);
-      }
-    }
-    
-    
-    if(ballObj.position.x + shiftDistance + ballBounds.width <= 0 || ballObj.position.x + shiftDistance + ballBounds.width >= canvasWidth)
-    {
-      shiftDistance = shiftDistance * -1;
-    }
-    ballObj.position.x = ballObj.position.x + shiftDistance;
-  }
+  //#endregion
 
   //#region PixiJS collision detection methods
 

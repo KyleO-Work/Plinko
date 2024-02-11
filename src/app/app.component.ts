@@ -28,13 +28,14 @@ export class AppComponent implements AfterViewInit{
   topPadding: number = 100;
   bottomPadding: number = 80;
   pointContainerThickness: number = 2;
+  pointContainerHeight: number = 40;
   pointContainerValues: number[] = [10, 5, 2, 1, 0, 1, 2, 5, 10];
   pointContainers: PointContainer[] = [];
-  expectedWinningPointContainer!: PointContainer;
+  expectedWinningPointContainer: PointContainer | undefined;
   pegColour: string = 'white';
   containerColour: string = 'gray';
   ballColour: string = 'red';
-  allowBallMovement: boolean = true;
+  allowBallMovement: boolean = false;
   ballObject: PIXI.Graphics = new PIXI.Graphics();
   lastPegCollision!: Peg;
 
@@ -55,7 +56,7 @@ export class AppComponent implements AfterViewInit{
 
     const pegs = this.chosenLayoutType == LayoutType.Grid ? this.generatePegs(this.leftPadding, canavasWidth - this.rightPadding, this.topPadding, canavasHeight - this.bottomPadding, 18, 12, app) : this.generatePegsVerticalPyramid(10, 8, canavasWidth, app);
     this.pointContainers = this.generatePointContainers(canavasHeight, canavasWidth, this.pointContainerValues, app);
-    this.expectedWinningPointContainer = this.getExpectedWinningPointContainer();
+    this.selectExpectedOutcome();
     this.ballObject = this.generateBall(canavasWidth, this.topPadding, app);
 
     this.renderGame(this.ballObject, pegs, this.pointContainers, app);
@@ -111,10 +112,9 @@ export class AppComponent implements AfterViewInit{
 
   generatePointContainers(canavasHeight: number, canavasWidth: number, pointContainerValues: number[], canvas: PIXI.Application) {
     const containerWidth = canavasWidth / pointContainerValues.length;
-    const containerHeight = 40; // Set to a random value I thought would be nice - #TODO replace with constant
     const halfContainerWidth = containerWidth / 2
     
-    const pointContainers = pointContainerValues.map((containerValue, index) => new PointContainer(index * containerWidth, containerWidth + (index * containerWidth), canavasHeight - containerHeight, canavasHeight, containerValue, new PIXI.Graphics()));
+    const pointContainers = pointContainerValues.map((containerValue, index) => new PointContainer(index * containerWidth, containerWidth + (index * containerWidth), canavasHeight - this.pointContainerHeight, canavasHeight, containerValue, new PIXI.Graphics()));
 
     return pointContainers.map(container => {
       container.renderObject.beginFill(this.containerColour)
@@ -205,12 +205,12 @@ export class AppComponent implements AfterViewInit{
     let shiftDistance = 0;
     let ballBounds = ballObj.getBounds();
 
-    if(this.chooseBallFallDirectionAtRandom)
+    if(this.chooseBallFallDirectionAtRandom || this.expectedWinningPointContainer == null)
     {
       shiftDistance = ballBounds.width * (Math.random() < 0.5 ? -1 : 1);
     }
     else{
-      const expectedWinningContainerXCenter = this.expectedWinningPointContainer?.startXPos + (this.expectedWinningPointContainer?.renderObject.getBounds().width / 2)
+      const expectedWinningContainerXCenter = this.expectedWinningPointContainer.startXPos + (this.expectedWinningPointContainer.renderObject.getBounds().width / 2)
       if(ballObj.position.x < expectedWinningContainerXCenter)
       {
         shiftDistance = ballBounds.width;
@@ -231,6 +231,15 @@ export class AppComponent implements AfterViewInit{
     ballObj.position.x = ballObj.position.x + shiftDistance;
   }
 
+  selectExpectedOutcome() {
+    if(this.chooseBallFallDirectionAtRandom)
+    {
+      return;
+    }
+    
+    this.expectedWinningPointContainer = this.getExpectedWinningPointContainer();
+  }
+
   //#endregion
 
 
@@ -246,7 +255,7 @@ export class AppComponent implements AfterViewInit{
       return;
     }
 
-    this.expectedWinningPointContainer = this.getExpectedWinningPointContainer();
+    this.selectExpectedOutcome();
     const canavasWidth = this.chosenLayoutType == LayoutType.Grid ? this.canavasWidthForGrid : this.canavasWidthForPyramid;
 
     this.playerScoreBalance -= this.playCost;
@@ -257,6 +266,15 @@ export class AppComponent implements AfterViewInit{
   changeLayout(type: LayoutType) {
     this.chosenLayoutType = type;
     this.renderCanvas();
+  }
+
+  changeRandomness(event: Event) {
+    this.chooseBallFallDirectionAtRandom = !this.chooseBallFallDirectionAtRandom;
+  
+    if(this.chooseBallFallDirectionAtRandom)
+    {
+      this.expectedWinningPointContainer = undefined;
+    }
   }
 
   //#endregion

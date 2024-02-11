@@ -5,6 +5,8 @@
         <div>Player's balance: {{playerScoreBalance}}</div>
         <div>
             <button (click)="startGame()" [disabled]="playerScoreBalance - playCost < 0">Play</button>
+            <button (click)="changeLayout(0)">Grid layout</button>
+            <button (click)="changeLayout(1)">Pyramid layout</button>
         </div>
     </div>
 </div>

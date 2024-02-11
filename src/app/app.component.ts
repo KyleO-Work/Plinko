@@ -3,6 +3,7 @@ import * as PIXI from 'pixi.js';
 import { Peg } from 'src/models/peg.model';
 import { PointContainer } from 'src/models/point-container.model';
 import {getRandomNumber } from 'src/helpers/math.helpers';
+import { LayoutType } from 'src/models/layout-type.model';
 
 @Component({
   selector: 'app-root',
@@ -12,8 +13,12 @@ import {getRandomNumber } from 'src/helpers/math.helpers';
 export class AppComponent implements AfterViewInit{
   title = 'plinko';
   @ViewChild('canavs') canvas: any;
-  canavasHeight: number = 400;
-  canavasWidth: number = 800;
+  canavasHeightForGrid: number = 400;
+  canavasWidthForGrid: number = 800;
+  canavasHeightForPyramid: number = 450;
+  canavasWidthForPyramid: number = 380;
+  chooseBallFallDirectionAtRandom: boolean = false;
+  chosenLayoutType: LayoutType = LayoutType.Grid;
 
   playerScoreBalance: number = 100;
   playCost: number = 10;
@@ -24,6 +29,8 @@ export class AppComponent implements AfterViewInit{
   bottomPadding: number = 80;
   pointContainerThickness: number = 2;
   pointContainerValues: number[] = [10, 5, 2, 1, 0, 1, 2, 5, 10];
+  pointContainers: PointContainer[] = [];
+  expectedWinningPointContainer!: PointContainer;
   pegColour: string = 'white';
   containerColour: string = 'gray';
   ballColour: string = 'red';
@@ -33,17 +40,25 @@ export class AppComponent implements AfterViewInit{
   constructor() {}
 
   ngAfterViewInit() {
-    const app = new PIXI.Application({height: this.canavasHeight, width: this.canavasWidth});
-    this.canvas.nativeElement.appendChild(app.view);
-
-    const pegs = this.generatePegs(this.leftPadding, this.canavasWidth - this.rightPadding, this.topPadding, this.canavasHeight - this.bottomPadding, 18, 9, app);
-    const pointContainers = this.generatePointContainers(this.canavasHeight, this.canavasWidth, this.pointContainerValues, app);
-    this.ballObject = this.generateBall(this.canavasWidth, this.topPadding, app)
-
-    this.renderGame(this.ballObject, pegs, pointContainers, app);
+    this.renderCanvas();
   }
 
-  generatePegs(startXPos: number, endXPos: number, startYPos: number, endYPos: number, numCols: number, numRows: number, canvas: PIXI.Application): Peg[][] {
+  renderCanvas() {
+    const canavasHeight = this.chosenLayoutType == LayoutType.Grid ? this.canavasHeightForGrid : this.canavasHeightForPyramid;
+    const canavasWidth = this.chosenLayoutType == LayoutType.Grid ? this.canavasWidthForGrid : this.canavasWidthForPyramid;
+
+    const app = new PIXI.Application({height: canavasHeight, width: canavasWidth});
+    this.canvas.nativeElement.replaceChildren(app.view);
+
+    const pegs = this.chosenLayoutType == LayoutType.Grid ? this.generatePegs(this.leftPadding, canavasWidth - this.rightPadding, this.topPadding, canavasHeight - this.bottomPadding, 18, 12, app) : this.generatePegsVerticalPyramid(10, 8, app);;
+    this.pointContainers = this.generatePointContainers(canavasHeight, canavasWidth, this.pointContainerValues, app);
+    this.expectedWinningPointContainer = this.getExpectedWinningPointContainer();
+    this.ballObject = this.generateBall(canavasWidth, this.topPadding, app);
+
+    this.renderGame(this.ballObject, pegs, this.pointContainers, app);
+  }
+
+  generatePegs(startXPos: number, endXPos: number, startYPos: number, endYPos: number, numCols: number, numRows: number, canvas: PIXI.Application): Peg[] {
     const allPegs = [];
     const xSpacing = (endXPos - startXPos) / (numCols - 1);
     const ySpacing = (endYPos - startYPos) / (numRows - 1);
@@ -59,19 +74,36 @@ export class AppComponent implements AfterViewInit{
       allPegs.push(currentRowPegs);
     }
   
-    return this.renderPegs(allPegs, canvas);
+    return this.renderPegs(allPegs.flatMap(x => x), canvas);
   }
 
-  renderPegs(allPegs: Peg[][], canvas: PIXI.Application) {
-    return allPegs.map(colPegs => {
-      return colPegs.map(peg => {
-        peg.renderObject.beginFill(this.pegColour)
-        .drawCircle(peg.x, peg.y, 5);
+  generatePegsVerticalPyramid(rows: any, pegRadius: any, app: any) {
+    let pegs = [];
+    let canvasWidth = app.renderer.width;
+    let spacing = canvasWidth / (rows * 2 + 1);
+    let startY = 50;
 
-        // Add it to the stage to render
-        canvas.stage.addChild(peg.renderObject);
-        return peg;
-      });
+    for (let i = 0; i < rows; i++) {
+        let startX = (canvasWidth - (i * (pegRadius * 2 + spacing))) / 2;
+
+        for (let j = 0; j <= i; j++) {
+            const x = startX + j * (pegRadius * 2 + spacing);
+            const y = startY + i * (pegRadius * 2 + spacing);
+            pegs.push(new Peg(x, y, new PIXI.Graphics()));
+        }
+    }
+
+    return this.renderPegs(pegs, app);
+}
+
+  renderPegs(allPegs: Peg[], canvas: PIXI.Application) {
+    return allPegs.map(peg => {
+      peg.renderObject.beginFill(this.pegColour)
+      .drawCircle(peg.x, peg.y, 5);
+
+      // Add it to the stage to render
+      canvas.stage.addChild(peg.renderObject);
+      return peg;
     });
   }
 
@@ -122,13 +154,13 @@ export class AppComponent implements AfterViewInit{
       ballObj.beginFill(this.ballColour)
         .drawCircle(0, 0, ballRadius); // NB: Setting the anchor positioning of the object affects its position so set it to 0,0 - top left
 
-        ballObj.position.set(getRandomNumber(this.leftPadding, canavasWidth - this.rightPadding), 10);
+        ballObj.position.set(this.chosenLayoutType == LayoutType.Grid ? getRandomNumber(this.leftPadding, canavasWidth - this.rightPadding) : canavasWidth / 2, 10);
 
         canvas.stage.addChild(ballObj);
         return ballObj
   }
 
-  renderGame(ballObj: PIXI.Graphics, pegs: Peg[][], pointContainers: PointContainer[], canvas: PIXI.Application) {
+  renderGame(ballObj: PIXI.Graphics, pegs: Peg[], pointContainers: PointContainer[], canvas: PIXI.Application) {
     const ballBounds = ballObj.getBounds();
     
     canvas.ticker.add((delta) => {
@@ -147,12 +179,7 @@ export class AppComponent implements AfterViewInit{
       const collidedWithPeg = this.checkCollisionWithPeg(ballObj, pegs);
       if(collidedWithPeg)
       {
-        let shiftDistance = 10 * (Math.random() < 0.5 ? -1 : 1);
-        if(ballObj.position.x + shiftDistance + ballBounds.width <= 0 || ballObj.position.x + shiftDistance + ballBounds.width >= this.canavasWidth)
-        {
-          shiftDistance = shiftDistance * -1;
-        }
-        ballObj.position.x = ballObj.position.x + shiftDistance;
+        this.applyBallXShift(ballObj, canvas.stage.width);
       }
 
       const collidingPointContainer = this.checkCollisionWithContainers(ballObj, pointContainers);
@@ -177,19 +204,57 @@ export class AppComponent implements AfterViewInit{
       return;
     }
 
+    this.expectedWinningPointContainer = this.getExpectedWinningPointContainer();
+    const canavasWidth = this.chosenLayoutType == LayoutType.Grid ? this.canavasWidthForGrid : this.canavasWidthForPyramid;
+
     this.playerScoreBalance -= this.playCost;
     this.allowBallMovement = true;
-    this.ballObject.position.set(getRandomNumber(this.leftPadding, this.canavasWidth - this.rightPadding), getRandomNumber(this.pointContainerThickness, this.topPadding - this.pointContainerThickness));
+    this.ballObject.position.set(this.chosenLayoutType == LayoutType.Grid ? getRandomNumber(this.leftPadding, canavasWidth - this.rightPadding) : canavasWidth / 2, 10);
+  }
+
+  changeLayout(type: LayoutType) {
+    this.chosenLayoutType = type;
+    this.renderCanvas();
+  }
+
+  getExpectedWinningPointContainer() {
+    return this.pointContainers[getRandomNumber(0, this.pointContainers.length)];
+  }
+  
+  applyBallXShift(ballObj: PIXI.Graphics, canvasWidth: number) {
+    let shiftDistance = 0;
+    let ballBounds = ballObj.getBounds();
+
+    if(this.chooseBallFallDirectionAtRandom)
+    {
+      shiftDistance = 10 * (Math.random() < 0.5 ? -1 : 1);
+    }
+    else{
+      const expectedWinningContainerXCenter = this.expectedWinningPointContainer?.startXPos + (this.expectedWinningPointContainer?.renderObject.getBounds().width / 2)
+      if(ballObj.position.x < expectedWinningContainerXCenter)
+      {
+        ballObj.position.x += 10;
+      }
+      else if(ballObj.position.x > expectedWinningContainerXCenter)
+      {
+        ballObj.position.x -= 10;
+      }
+    }
+    
+    
+    if(ballObj.position.x + shiftDistance + ballBounds.width <= 0 || ballObj.position.x + shiftDistance + ballBounds.width >= canvasWidth)
+    {
+      shiftDistance = shiftDistance * -1;
+    }
+    ballObj.position.x = ballObj.position.x + shiftDistance;
   }
 
   //#region PixiJS collision detection methods
 
-  checkCollisionWithPeg(ballObj: PIXI.Graphics, pegs: Peg[][])
+  checkCollisionWithPeg(ballObj: PIXI.Graphics, pegs: Peg[])
   {
-    return pegs.some(pgs => {
-      return pgs.some(peg => {
-        return this.checkCollisionWithObject(ballObj, peg.renderObject);
-      });
+    return pegs.some(peg => {
+      return this.checkCollisionWithObject(ballObj, peg.renderObject);
     });
   }
 

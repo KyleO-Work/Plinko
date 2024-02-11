@@ -36,6 +36,7 @@ export class AppComponent implements AfterViewInit{
   ballColour: string = 'red';
   allowBallMovement: boolean = true;
   ballObject: PIXI.Graphics = new PIXI.Graphics();
+  lastPegCollision!: Peg;
 
   constructor() {}
 
@@ -50,7 +51,7 @@ export class AppComponent implements AfterViewInit{
     const app = new PIXI.Application({height: canavasHeight, width: canavasWidth});
     this.canvas.nativeElement.replaceChildren(app.view);
 
-    const pegs = this.chosenLayoutType == LayoutType.Grid ? this.generatePegs(this.leftPadding, canavasWidth - this.rightPadding, this.topPadding, canavasHeight - this.bottomPadding, 18, 12, app) : this.generatePegsVerticalPyramid(10, 8, app);;
+    const pegs = this.chosenLayoutType == LayoutType.Grid ? this.generatePegs(this.leftPadding, canavasWidth - this.rightPadding, this.topPadding, canavasHeight - this.bottomPadding, 18, 12, app) : this.generatePegsVerticalPyramid(10, 8, canavasWidth, app);
     this.pointContainers = this.generatePointContainers(canavasHeight, canavasWidth, this.pointContainerValues, app);
     this.expectedWinningPointContainer = this.getExpectedWinningPointContainer();
     this.ballObject = this.generateBall(canavasWidth, this.topPadding, app);
@@ -77,9 +78,8 @@ export class AppComponent implements AfterViewInit{
     return this.renderPegs(allPegs.flatMap(x => x), canvas);
   }
 
-  generatePegsVerticalPyramid(rows: any, pegRadius: any, app: any) {
+  generatePegsVerticalPyramid(rows: any, pegRadius: any, canvasWidth: number, app: PIXI.Application) {
     let pegs = [];
-    let canvasWidth = app.renderer.width;
     let spacing = canvasWidth / (rows * 2 + 1);
     let startY = 50;
 
@@ -179,6 +179,7 @@ export class AppComponent implements AfterViewInit{
       const collidedWithPeg = this.checkCollisionWithPeg(ballObj, pegs);
       if(collidedWithPeg)
       {
+        this.lastPegCollision = collidedWithPeg;
         this.applyBallXShift(ballObj, canvas.stage.width);
       }
 
@@ -227,17 +228,19 @@ export class AppComponent implements AfterViewInit{
 
     if(this.chooseBallFallDirectionAtRandom)
     {
-      shiftDistance = 10 * (Math.random() < 0.5 ? -1 : 1);
+      shiftDistance = 16 * (Math.random() < 0.5 ? -1 : 1);
     }
     else{
       const expectedWinningContainerXCenter = this.expectedWinningPointContainer?.startXPos + (this.expectedWinningPointContainer?.renderObject.getBounds().width / 2)
       if(ballObj.position.x < expectedWinningContainerXCenter)
       {
-        ballObj.position.x += 10;
+        shiftDistance = 16;
       }
       else if(ballObj.position.x > expectedWinningContainerXCenter)
       {
-        ballObj.position.x -= 10;
+        shiftDistance = -16;
+      } else{
+        shiftDistance = 16 * (Math.random() < 0.5 ? -1 : 1);
       }
     }
     
@@ -253,8 +256,8 @@ export class AppComponent implements AfterViewInit{
 
   checkCollisionWithPeg(ballObj: PIXI.Graphics, pegs: Peg[])
   {
-    return pegs.some(peg => {
-      return this.checkCollisionWithObject(ballObj, peg.renderObject);
+    return pegs.find(peg => {
+      return this.checkCollisionWithObject(ballObj, peg.renderObject) && peg != this.lastPegCollision;
     });
   }
 

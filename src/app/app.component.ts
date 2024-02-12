@@ -54,15 +54,17 @@ export class AppComponent implements AfterViewInit{
     const app = new PIXI.Application({height: canavasHeight, width: canavasWidth});
     this.canvas.nativeElement.replaceChildren(app.view);
 
-    const pegs = this.chosenLayoutType == LayoutType.Grid ? this.generatePegs(this.leftPadding, canavasWidth - this.rightPadding, this.topPadding, canavasHeight - this.bottomPadding, 18, 12, app) : this.generatePegsVerticalPyramid(10, 8, canavasWidth, app);
+    const pegs = this.chosenLayoutType == LayoutType.Grid ? this.generateGridPegs(this.leftPadding, canavasWidth - this.rightPadding, this.topPadding, canavasHeight - this.bottomPadding, 18, 12, app) : this.generatePegsVerticalPyramid(10, 8, canavasWidth, app);
     this.pointContainers = this.generatePointContainers(canavasHeight, canavasWidth, this.pointContainerValues, app);
+
+    // Now that the point containers are populated, choose one to predetermine the ball's movement
     this.selectExpectedOutcome();
     this.ballObject = this.generateBall(canavasWidth, this.topPadding, app);
 
     this.renderGame(this.ballObject, pegs, this.pointContainers, app);
   }
 
-  generatePegs(startXPos: number, endXPos: number, startYPos: number, endYPos: number, numCols: number, numRows: number, canvas: PIXI.Application): Peg[] {
+  generateGridPegs(startXPos: number, endXPos: number, startYPos: number, endYPos: number, numCols: number, numRows: number, canvas: PIXI.Application): Peg[] {
     const allPegs = [];
     const xSpacing = (endXPos - startXPos) / (numCols - 1);
     const ySpacing = (endYPos - startYPos) / (numRows - 1);

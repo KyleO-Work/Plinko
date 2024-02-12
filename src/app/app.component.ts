@@ -197,38 +197,37 @@ export class AppComponent implements AfterViewInit{
     });
   }
 
-  getExpectedWinningPointContainer() {
-   /// Sort the objects based on their value in ascending order
-    const sortedObjects = this.pointContainers.sort((a, b) => a.value - b.value);
-
-    // Calculate total weight based on the index
-    const totalWeight = sortedObjects.reduce((acc, obj, index) => acc + (1 / (index + 1)), 0);
+  weightedRandomSelection(values: number[]) {
+    // Calculate total weight based on the inverse of value
+    const totalWeight = values.reduce((acc: number, value: number) => acc + (1 / (value + 1)), 0);
 
     // Generate a random number between 0 and totalWeight
     const random = Math.random() * totalWeight;
 
-    // Iterate over the sorted objects and select one based on the random number
+    // Iterate over the values and select one based on the random number
     let sum = 0;
-    for (const obj of sortedObjects) {
-        sum += 1 / obj.value;
+    for (const [i, value] of values.entries()) {
+        sum += 1 / (value + 1);
         if (random <= sum) {
-            return obj;
+            return i;
         }
     }
 
-    // This should never be reached, but in case of some edge cases, return the last object
-    return sortedObjects[sortedObjects.length - 1];
+    // This should never be reached, but in case of some edge cases, return the last value
+    return values.length - 1;
+}
+
+  getExpectedWinningPointContainer() {
+    const selectedIndex = this.weightedRandomSelection(this.pointContainerValues);
+
+   return this.pointContainers[selectedIndex];
   }
   
   applyBallXShift(ballObj: PIXI.Graphics, canvasWidth: number) {
-    let shiftDistance = 0;
     let ballBounds = ballObj.getBounds();
+    let shiftDistance = ballBounds.width * (Math.random() < 0.5 ? -1 : 1);
 
-    if(this.chooseBallFallDirectionAtRandom || this.expectedWinningPointContainer == null)
-    {
-      shiftDistance = ballBounds.width * (Math.random() < 0.5 ? -1 : 1);
-    }
-    else{
+    if(!this.chooseBallFallDirectionAtRandom && this.expectedWinningPointContainer != null) {
       const expectedWinningContainerXCenter = this.expectedWinningPointContainer.startXPos + (this.expectedWinningPointContainer.renderObject.getBounds().width / 2)
       if(ballObj.position.x < expectedWinningContainerXCenter)
       {
@@ -237,8 +236,6 @@ export class AppComponent implements AfterViewInit{
       else if(ballObj.position.x > expectedWinningContainerXCenter)
       {
         shiftDistance = -ballBounds.width;
-      } else{
-        shiftDistance = ballBounds.width * (Math.random() < 0.5 ? -1 : 1);
       }
     }
     
@@ -286,13 +283,16 @@ export class AppComponent implements AfterViewInit{
     this.renderCanvas();
   }
 
-  changeRandomness(event: Event) {
+  changeRandomness() {
     this.chooseBallFallDirectionAtRandom = !this.chooseBallFallDirectionAtRandom;
   
     if(this.chooseBallFallDirectionAtRandom)
     {
       this.expectedWinningPointContainer = undefined;
+      return;
     }
+
+    this.selectExpectedOutcome();
   }
 
   //#endregion

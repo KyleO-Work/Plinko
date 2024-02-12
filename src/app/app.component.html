@@ -9,8 +9,8 @@
             <button (click)="changeLayout(1)">Pyramid layout</button>
         </div>
         <div>
-            Predetermine outcome?
-            <input type="checkbox" [checked]="chooseBallFallDirectionAtRandom" (click)="changeRandomness($event)">
+            True Random outcome?
+            <input type="checkbox" [checked]="chooseBallFallDirectionAtRandom" (click)="changeRandomness()">
         </div>
         <ng-container *ngIf="chooseBallFallDirectionAtRandom; else predetermined">
             <div>

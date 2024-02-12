@@ -198,7 +198,26 @@ export class AppComponent implements AfterViewInit{
   }
 
   getExpectedWinningPointContainer() {
-    return this.pointContainers[getRandomNumber(0, this.pointContainers.length)];
+   /// Sort the objects based on their value in ascending order
+    const sortedObjects = this.pointContainers.sort((a, b) => a.value - b.value);
+
+    // Calculate total weight based on the index
+    const totalWeight = sortedObjects.reduce((acc, obj, index) => acc + (1 / (index + 1)), 0);
+
+    // Generate a random number between 0 and totalWeight
+    const random = Math.random() * totalWeight;
+
+    // Iterate over the sorted objects and select one based on the random number
+    let sum = 0;
+    for (const obj of sortedObjects) {
+        sum += 1 / obj.value;
+        if (random <= sum) {
+            return obj;
+        }
+    }
+
+    // This should never be reached, but in case of some edge cases, return the last object
+    return sortedObjects[sortedObjects.length - 1];
   }
   
   applyBallXShift(ballObj: PIXI.Graphics, canvasWidth: number) {
@@ -239,7 +258,6 @@ export class AppComponent implements AfterViewInit{
     
     this.expectedWinningPointContainer = this.getExpectedWinningPointContainer();
   }
-
   //#endregion
 
 

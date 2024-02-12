@@ -32,6 +32,7 @@ export class AppComponent implements AfterViewInit{
   pointContainerValues: number[] = [10, 5, 2, 1, 0, 1, 2, 5, 10];
   pointContainers: PointContainer[] = [];
   expectedWinningPointContainer: PointContainer | undefined;
+  expectedPointContainerTextColour: string = 'red';
   pegColour: string = 'white';
   containerColour: string = 'gray';
   ballColour: string = 'red';
@@ -47,6 +48,9 @@ export class AppComponent implements AfterViewInit{
 
   //#region Game loop logic
 
+  /**
+   * Initialized and renders the starting state of the canvas
+   */
   renderCanvas() {
     const canavasHeight = this.chosenLayoutType == LayoutType.Grid ? this.canavasHeightForGrid : this.canavasHeightForPyramid;
     const canavasWidth = this.chosenLayoutType == LayoutType.Grid ? this.canavasWidthForGrid : this.canavasWidthForPyramid;
@@ -54,16 +58,24 @@ export class AppComponent implements AfterViewInit{
     const app = new PIXI.Application({height: canavasHeight, width: canavasWidth});
     this.canvas.nativeElement.replaceChildren(app.view);
 
-    const pegs = this.chosenLayoutType == LayoutType.Grid ? this.generateGridPegs(this.leftPadding, canavasWidth - this.rightPadding, this.topPadding, canavasHeight - this.bottomPadding, 18, 12, app) : this.generatePegsVerticalPyramid(10, 8, canavasWidth, app);
+    const pegs = this.chosenLayoutType == LayoutType.Grid ? this.generateGridPegs(this.leftPadding, canavasWidth - this.rightPadding, this.topPadding, canavasHeight - this.bottomPadding, 18, 12, app) : this.generatePegsVerticalPyramid(10, canavasWidth, app);
     this.pointContainers = this.generatePointContainers(canavasHeight, canavasWidth, this.pointContainerValues, app);
-
-    // Now that the point containers are populated, choose one to predetermine the ball's movement
-    this.selectExpectedOutcome();
-    this.ballObject = this.generateBall(canavasWidth, this.topPadding, app);
+    this.ballObject = this.generateBall(canavasWidth, 10, app);
 
     this.renderGame(this.ballObject, pegs, this.pointContainers, app);
   }
 
+  /**
+   * Generates the pegs in a grid-like pattern on the given canvas using the given params
+   * @param startXPos The starting x coordinate to start rendering the pegs
+   * @param endXPos The last x coordinate to stop rendering the pegs at
+   * @param startYPos The starting y coordinate to start rendering the pegs
+   * @param endYPos The last y coordinate to end rendering the pegs at
+   * @param numCols The total number of columns of pegs to render
+   * @param numRows The total number of rows of pegs to render
+   * @param canvas The canvas to render the pegs onto
+   * @returns 
+   */
   generateGridPegs(startXPos: number, endXPos: number, startYPos: number, endYPos: number, numCols: number, numRows: number, canvas: PIXI.Application): Peg[] {
     const allPegs = [];
     const xSpacing = (endXPos - startXPos) / (numCols - 1);
@@ -83,7 +95,15 @@ export class AppComponent implements AfterViewInit{
     return this.renderPegs(allPegs.flatMap(x => x), canvas);
   }
 
-  generatePegsVerticalPyramid(rows: any, pegRadius: any, canvasWidth: number, app: PIXI.Application) {
+  /**
+   * Generates the pegs in a pryamid-like pattern on the given canvas using the given params
+   * @param rows The total number of rows of pegs to render
+   * @param canvasWidth 
+   * @param app 
+   * @returns 
+   */
+  generatePegsVerticalPyramid(rows: any, canvasWidth: number, app: PIXI.Application) {
+    const pegRadius = 8;
     let pegs = [];
     let spacing = canvasWidth / (rows * 2 + 1);
     let startY = 50;
@@ -99,8 +119,14 @@ export class AppComponent implements AfterViewInit{
     }
 
     return this.renderPegs(pegs, app);
-}
+  }
 
+  /**
+   * Renders the given pegs onto the given canvas
+   * @param allPegs The array of pegs to render
+   * @param canvas The canavs to render the pegs onto
+   * @returns 
+   */
   renderPegs(allPegs: Peg[], canvas: PIXI.Application) {
     return allPegs.map(peg => {
       peg.renderObject.beginFill(this.pegColour)
@@ -112,12 +138,19 @@ export class AppComponent implements AfterViewInit{
     });
   }
 
+  /**
+   * Generates the point container at specific x and y cooredinates and renders them onto the given canvas
+   * @param canavasHeight The canavs height
+   * @param canavasWidth The canavs width
+   * @param pointContainerValues The array of values for the given point containers in the order that they should appear from left to right
+   * @param canvas The canvas to render the point containers onto
+   * @returns 
+   */
   generatePointContainers(canavasHeight: number, canavasWidth: number, pointContainerValues: number[], canvas: PIXI.Application) {
     const containerWidth = canavasWidth / pointContainerValues.length;
     const halfContainerWidth = containerWidth / 2
     
-    const pointContainers = pointContainerValues.map((containerValue, index) => new PointContainer(index * containerWidth, containerWidth + (index * containerWidth), canavasHeight - this.pointContainerHeight, canavasHeight, containerValue, new PIXI.Graphics()));
-
+    const pointContainers = pointContainerValues.map((containerValue, index) => new PointContainer(index * containerWidth, containerWidth + (index * containerWidth), canavasHeight - this.pointContainerHeight, canavasHeight, containerValue, new PIXI.Graphics(), new PIXI.Text()));
     return pointContainers.map(container => {
       container.renderObject.beginFill(this.containerColour)
         .moveTo(container.startXPos, container.startYPos)
@@ -131,7 +164,7 @@ export class AppComponent implements AfterViewInit{
         .lineTo(container.startXPos, container.startYPos)
         .endFill();
 
-        let textObj = new PIXI.Text(`${container.value}`,
+        container.textRenderObject = new PIXI.Text(`${container.value}`,
           {
             fontFamily: 'Arial',
             fontSize: 24,
@@ -140,30 +173,44 @@ export class AppComponent implements AfterViewInit{
         });
 
         // Need to center align text of the container it is in
-        textObj.position.x = container.endXPos - halfContainerWidth - (textObj.width / 2);
-        textObj.position.y = container.endYPos - halfContainerWidth;
+        container.textRenderObject.position.x = container.endXPos - halfContainerWidth - (container.textRenderObject.width / 2);
+        container.textRenderObject.position.y = container.endYPos - halfContainerWidth;
 
         // Add it to the stage to render
         canvas.stage.addChild(container.renderObject);
-        canvas.stage.addChild(textObj);
+        canvas.stage.addChild(container.textRenderObject);
 
         return container;
     });
   }
 
-  generateBall(canavasWidth: number, maxYPos: number, canvas: PIXI.Application) {
+  /**
+   * Generates the ball object onto the given canvas
+   * @param canavasWidth The canvas width
+   * @param startingYPos The starting y position if the ball
+   * @param canvas The canvas to render the ball onto
+   * @returns 
+   */
+  generateBall(canavasWidth: number, startingYPos: number, canvas: PIXI.Application) {
     const ballRadius = 8;
     let ballObj = new PIXI.Graphics();
 
       ballObj.beginFill(this.ballColour)
         .drawCircle(0, 0, ballRadius); // NB: Setting the anchor positioning of the object affects its position so set it to 0,0 - top left
 
-        ballObj.position.set(this.chosenLayoutType == LayoutType.Grid ? getRandomNumber(this.leftPadding, canavasWidth - this.rightPadding) : canavasWidth / 2, 10);
+        ballObj.position.set(this.chosenLayoutType == LayoutType.Grid ? getRandomNumber(this.leftPadding, canavasWidth - this.rightPadding) : canavasWidth / 2, startingYPos);
 
         canvas.stage.addChild(ballObj);
         return ballObj
   }
 
+  /**
+   * Render the gameplaye loop of the ball falling through the pegs and landing inside a point container
+   * @param ballObj The ball object to check collisions against
+   * @param pegs The pegs to check collisions against
+   * @param pointContainers The point containers to check collisions against
+   * @param canvas The canvas to add the ticker method handler to
+   */
   renderGame(ballObj: PIXI.Graphics, pegs: Peg[], pointContainers: PointContainer[], canvas: PIXI.Application) {
     const ballBounds = ballObj.getBounds();
     
@@ -199,6 +246,11 @@ export class AppComponent implements AfterViewInit{
     });
   }
 
+  /**
+   * Generate a weighted selection to identify which of the point values to select for the ball to land on
+   * @param values The list if point values to use for the selection process
+   * @returns The index to select the appropriate point container
+   */
   weightedRandomSelection(values: number[]) {
     // Calculate total weight based on the inverse of value
     const totalWeight = values.reduce((acc: number, value: number) => acc + (1 / (value + 1)), 0);
@@ -217,14 +269,23 @@ export class AppComponent implements AfterViewInit{
 
     // This should never be reached, but in case of some edge cases, return the last value
     return values.length - 1;
-}
+  }
 
+  /**
+   * Select and return the expected point container for the ball to land into from the list of point containers
+   * @returns 
+   */
   getExpectedWinningPointContainer() {
     const selectedIndex = this.weightedRandomSelection(this.pointContainerValues);
 
    return this.pointContainers[selectedIndex];
   }
   
+  /**
+   * Generates and applies horizontal movement to the given ball object to simulate the ball hitting a peg
+   * @param ballObj The ball object to apply the movement onto
+   * @param canvasWidth The width of the canvas to ensure the ball doesn't fall off the screen
+   */
   applyBallXShift(ballObj: PIXI.Graphics, canvasWidth: number) {
     let ballBounds = ballObj.getBounds();
     let shiftDistance = ballBounds.width * (Math.random() < 0.5 ? -1 : 1);
@@ -249,23 +310,43 @@ export class AppComponent implements AfterViewInit{
     ballObj.position.x = ballObj.position.x + shiftDistance;
   }
 
+  /**
+   * The helper method to set the expect point container if the ball randomness setting is turned off
+   * @returns 
+   */
   selectExpectedOutcome() {
     if(this.chooseBallFallDirectionAtRandom)
     {
       return;
     }
     
+    // If there is an old expected point container then reset its text colour
+    if(this.expectedWinningPointContainer)
+    {
+      this.expectedWinningPointContainer.textRenderObject.style.fill = this.containerColour;
+    }
+
     this.expectedWinningPointContainer = this.getExpectedWinningPointContainer();
+    this.expectedWinningPointContainer.textRenderObject.style.fill = this.expectedPointContainerTextColour;
   }
   //#endregion
 
 
   //#region Player controls
 
+  /**
+   * Adjusts the player's score based on the point container the ball landed into
+   * @param pointContainer The point container the ball collided with first
+   */
   scorePlayer(pointContainer: PointContainer) {
     this.playerScoreBalance += pointContainer.value;
   }
 
+  /**
+   * Begins the movement of the ball on the canvas and sets the expected point container that the ball "should" land in
+   * (there is a small chance on the grid layout that the ball will not make it into the allocated point container if it starts at a position far enough away from the respective point container)
+   * @returns 
+   */
   startGame() {
     if(this.playerScoreBalance - this.playCost < 0)
     {
@@ -280,16 +361,25 @@ export class AppComponent implements AfterViewInit{
     this.ballObject.position.set(this.chosenLayoutType == LayoutType.Grid ? getRandomNumber(this.leftPadding, canavasWidth - this.rightPadding) : canavasWidth / 2, 10);
   }
 
+  /**
+   * Changes the layout of the pegs and causes the canvas to re-render said pegs in said layout
+   * @param type 
+   */
   changeLayout(type: LayoutType) {
     this.chosenLayoutType = type;
     this.renderCanvas();
   }
 
+  /**
+   * Change the randomness setting to determine if a predetermined point container is chosen
+   * @returns 
+   */
   changeRandomness() {
     this.chooseBallFallDirectionAtRandom = !this.chooseBallFallDirectionAtRandom;
   
-    if(this.chooseBallFallDirectionAtRandom)
+    if(this.chooseBallFallDirectionAtRandom && this.expectedWinningPointContainer)
     {
+      this.expectedWinningPointContainer.textRenderObject.style.fill = this.containerColour;
       this.expectedWinningPointContainer = undefined;
       return;
     }
@@ -301,6 +391,12 @@ export class AppComponent implements AfterViewInit{
 
   //#region PixiJS collision detection methods
 
+  /**
+   * A helper function to check if the ball as collided with a peg
+   * @param ballObj The ball object
+   * @param pegs An array of pegs to check against
+   * @returns The peg (if any) that the ball collided with
+   */
   checkCollisionWithPeg(ballObj: PIXI.Graphics, pegs: Peg[])
   {
     return pegs.find(peg => {
@@ -308,6 +404,12 @@ export class AppComponent implements AfterViewInit{
     });
   }
 
+  /**
+   * A helper function to check if the ball as collided with a point container
+   * @param ballObj The ball object
+   * @param pointContainers An array of point containers to check against
+   * @returns The point container (if any) that the ball collided with
+   */
   checkCollisionWithContainers(ballObj: PIXI.Graphics, pointContainers: PointContainer[])
   {
     return pointContainers.find(container => {
@@ -315,14 +417,20 @@ export class AppComponent implements AfterViewInit{
     });
   }
 
+  /**
+   * A helper function to check if objectA collided with objectB
+   * @param objectA A pixi graphics object
+   * @param objectB A pixi graphics object
+   * @returns A boolean indicating if a collision is occuring
+   */
   checkCollisionWithObject(objectA: PIXI.Graphics, objectB: PIXI.Graphics) {
-    const bounds1 = objectA.getBounds();
-        const bounds2 = objectB.getBounds();
+    const boundsA = objectA.getBounds();
+    const boundsB = objectB.getBounds();
 
-        return bounds1.x < bounds2.x + bounds2.width
-            && bounds1.x + bounds1.width > bounds2.x
-            && bounds1.y < bounds2.y + bounds2.height
-            && bounds1.y + bounds1.height > bounds2.y;
+    return boundsA.x < boundsB.x + boundsB.width
+        && boundsA.x + boundsA.width > boundsB.x
+        && boundsA.y < boundsB.y + boundsB.height
+        && boundsA.y + boundsA.height > boundsB.y;
   }
 
   //#endregion

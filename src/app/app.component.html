@@ -9,7 +9,18 @@
             <button (click)="changeLayout(1)">Pyramid layout</button>
         </div>
         <div>
-            The expected winner is: {{expectedWinningPointContainer?.value}}
+            True Random outcome?
+            <input type="checkbox" [checked]="chooseBallFallDirectionAtRandom" (click)="changeRandomness()">
         </div>
+        <ng-container *ngIf="chooseBallFallDirectionAtRandom; else predetermined">
+            <div>
+                The expected winner is going to be random
+            </div>
+        </ng-container>
+        <ng-template #predetermined>
+            <div>
+                The expected winner is: {{expectedWinningPointContainer?.value}}
+            </div>
+        </ng-template>
     </div>
 </div>

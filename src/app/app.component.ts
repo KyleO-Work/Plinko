@@ -28,13 +28,14 @@ export class AppComponent implements AfterViewInit{
   topPadding: number = 100;
   bottomPadding: number = 80;
   pointContainerThickness: number = 2;
+  pointContainerHeight: number = 40;
   pointContainerValues: number[] = [10, 5, 2, 1, 0, 1, 2, 5, 10];
   pointContainers: PointContainer[] = [];
-  expectedWinningPointContainer!: PointContainer;
+  expectedWinningPointContainer: PointContainer | undefined;
   pegColour: string = 'white';
   containerColour: string = 'gray';
   ballColour: string = 'red';
-  allowBallMovement: boolean = true;
+  allowBallMovement: boolean = false;
   ballObject: PIXI.Graphics = new PIXI.Graphics();
   lastPegCollision!: Peg;
 
@@ -53,15 +54,17 @@ export class AppComponent implements AfterViewInit{
     const app = new PIXI.Application({height: canavasHeight, width: canavasWidth});
     this.canvas.nativeElement.replaceChildren(app.view);
 
-    const pegs = this.chosenLayoutType == LayoutType.Grid ? this.generatePegs(this.leftPadding, canavasWidth - this.rightPadding, this.topPadding, canavasHeight - this.bottomPadding, 18, 12, app) : this.generatePegsVerticalPyramid(10, 8, canavasWidth, app);
+    const pegs = this.chosenLayoutType == LayoutType.Grid ? this.generateGridPegs(this.leftPadding, canavasWidth - this.rightPadding, this.topPadding, canavasHeight - this.bottomPadding, 18, 12, app) : this.generatePegsVerticalPyramid(10, 8, canavasWidth, app);
     this.pointContainers = this.generatePointContainers(canavasHeight, canavasWidth, this.pointContainerValues, app);
-    this.expectedWinningPointContainer = this.getExpectedWinningPointContainer();
+
+    // Now that the point containers are populated, choose one to predetermine the ball's movement
+    this.selectExpectedOutcome();
     this.ballObject = this.generateBall(canavasWidth, this.topPadding, app);
 
     this.renderGame(this.ballObject, pegs, this.pointContainers, app);
   }
 
-  generatePegs(startXPos: number, endXPos: number, startYPos: number, endYPos: number, numCols: number, numRows: number, canvas: PIXI.Application): Peg[] {
+  generateGridPegs(startXPos: number, endXPos: number, startYPos: number, endYPos: number, numCols: number, numRows: number, canvas: PIXI.Application): Peg[] {
     const allPegs = [];
     const xSpacing = (endXPos - startXPos) / (numCols - 1);
     const ySpacing = (endYPos - startYPos) / (numRows - 1);
@@ -111,10 +114,9 @@ export class AppComponent implements AfterViewInit{
 
   generatePointContainers(canavasHeight: number, canavasWidth: number, pointContainerValues: number[], canvas: PIXI.Application) {
     const containerWidth = canavasWidth / pointContainerValues.length;
-    const containerHeight = 40; // Set to a random value I thought would be nice - #TODO replace with constant
     const halfContainerWidth = containerWidth / 2
     
-    const pointContainers = pointContainerValues.map((containerValue, index) => new PointContainer(index * containerWidth, containerWidth + (index * containerWidth), canavasHeight - containerHeight, canavasHeight, containerValue, new PIXI.Graphics()));
+    const pointContainers = pointContainerValues.map((containerValue, index) => new PointContainer(index * containerWidth, containerWidth + (index * containerWidth), canavasHeight - this.pointContainerHeight, canavasHeight, containerValue, new PIXI.Graphics()));
 
     return pointContainers.map(container => {
       container.renderObject.beginFill(this.containerColour)
@@ -197,20 +199,38 @@ export class AppComponent implements AfterViewInit{
     });
   }
 
+  weightedRandomSelection(values: number[]) {
+    // Calculate total weight based on the inverse of value
+    const totalWeight = values.reduce((acc: number, value: number) => acc + (1 / (value + 1)), 0);
+
+    // Generate a random number between 0 and totalWeight
+    const random = Math.random() * totalWeight;
+
+    // Iterate over the values and select one based on the random number
+    let sum = 0;
+    for (const [i, value] of values.entries()) {
+        sum += 1 / (value + 1);
+        if (random <= sum) {
+            return i;
+        }
+    }
+
+    // This should never be reached, but in case of some edge cases, return the last value
+    return values.length - 1;
+}
+
   getExpectedWinningPointContainer() {
-    return this.pointContainers[getRandomNumber(0, this.pointContainers.length)];
+    const selectedIndex = this.weightedRandomSelection(this.pointContainerValues);
+
+   return this.pointContainers[selectedIndex];
   }
   
   applyBallXShift(ballObj: PIXI.Graphics, canvasWidth: number) {
-    let shiftDistance = 0;
     let ballBounds = ballObj.getBounds();
+    let shiftDistance = ballBounds.width * (Math.random() < 0.5 ? -1 : 1);
 
-    if(this.chooseBallFallDirectionAtRandom)
-    {
-      shiftDistance = ballBounds.width * (Math.random() < 0.5 ? -1 : 1);
-    }
-    else{
-      const expectedWinningContainerXCenter = this.expectedWinningPointContainer?.startXPos + (this.expectedWinningPointContainer?.renderObject.getBounds().width / 2)
+    if(!this.chooseBallFallDirectionAtRandom && this.expectedWinningPointContainer != null) {
+      const expectedWinningContainerXCenter = this.expectedWinningPointContainer.startXPos + (this.expectedWinningPointContainer.renderObject.getBounds().width / 2)
       if(ballObj.position.x < expectedWinningContainerXCenter)
       {
         shiftDistance = ballBounds.width;
@@ -218,8 +238,6 @@ export class AppComponent implements AfterViewInit{
       else if(ballObj.position.x > expectedWinningContainerXCenter)
       {
         shiftDistance = -ballBounds.width;
-      } else{
-        shiftDistance = ballBounds.width * (Math.random() < 0.5 ? -1 : 1);
       }
     }
     
@@ -231,6 +249,14 @@ export class AppComponent implements AfterViewInit{
     ballObj.position.x = ballObj.position.x + shiftDistance;
   }
 
+  selectExpectedOutcome() {
+    if(this.chooseBallFallDirectionAtRandom)
+    {
+      return;
+    }
+    
+    this.expectedWinningPointContainer = this.getExpectedWinningPointContainer();
+  }
   //#endregion
 
 
@@ -246,7 +272,7 @@ export class AppComponent implements AfterViewInit{
       return;
     }
 
-    this.expectedWinningPointContainer = this.getExpectedWinningPointContainer();
+    this.selectExpectedOutcome();
     const canavasWidth = this.chosenLayoutType == LayoutType.Grid ? this.canavasWidthForGrid : this.canavasWidthForPyramid;
 
     this.playerScoreBalance -= this.playCost;
@@ -257,6 +283,18 @@ export class AppComponent implements AfterViewInit{
   changeLayout(type: LayoutType) {
     this.chosenLayoutType = type;
     this.renderCanvas();
+  }
+
+  changeRandomness() {
+    this.chooseBallFallDirectionAtRandom = !this.chooseBallFallDirectionAtRandom;
+  
+    if(this.chooseBallFallDirectionAtRandom)
+    {
+      this.expectedWinningPointContainer = undefined;
+      return;
+    }
+
+    this.selectExpectedOutcome();
   }
 
   //#endregion

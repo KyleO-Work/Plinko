@@ -252,8 +252,9 @@ export class AppComponent implements AfterViewInit{
    * @returns The index to select the appropriate point container
    */
   weightedRandomSelection(values: number[]) {
-    // Calculate total weight based on the inverse of value
-    const totalWeight = values.reduce((acc: number, value: number) => acc + (1 / (value + 1)), 0);
+    const maxNumberToDisfavour = 4;
+    // Calculate total weight based on the inverse of value, favoring values less than 4
+    const totalWeight = values.reduce((acc: number, value: number) => acc + (1 / (value + 1)) * (value < maxNumberToDisfavour ? 2 : 0.5), 0);
 
     // Generate a random number between 0 and totalWeight
     const random = Math.random() * totalWeight;
@@ -261,7 +262,8 @@ export class AppComponent implements AfterViewInit{
     // Iterate over the values and select one based on the random number
     let sum = 0;
     for (const [i, value] of values.entries()) {
-        sum += 1 / (value + 1);
+        sum += (1 / (value + 1)) * (value < maxNumberToDisfavour ? 2 : 0.5);
+        
         if (random <= sum) {
             return i;
         }

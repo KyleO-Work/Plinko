@@ -1,5 +1,6 @@
 import { AfterViewInit, Component, ViewChild } from '@angular/core';
 import * as PIXI from 'pixi.js';
+import * as Matter from 'matter-js';
 import { Peg } from 'src/models/peg.model';
 import { PointContainer } from 'src/models/point-container.model';
 import {getRandomNumber } from 'src/helpers/math.helpers';
@@ -18,6 +19,7 @@ export class AppComponent implements AfterViewInit{
   canavasHeightForPyramid: number = 450;
   canavasWidthForPyramid: number = 380;
   chooseBallFallDirectionAtRandom: boolean = false;
+  useMatterPhysicsEngine: boolean = false;
   chosenLayoutType: LayoutType = LayoutType.Grid;
 
   playerScoreBalance: number = 100;
@@ -40,9 +42,15 @@ export class AppComponent implements AfterViewInit{
   ballObject: PIXI.Graphics = new PIXI.Graphics();
   lastPegCollision!: Peg;
 
+  physicsEngine: Matter.Engine = Matter.Engine.create();
+  engineWorld: Matter.World = this.physicsEngine.world;
+  ballObjectBoundry!: Matter.Body;
+
   constructor() {}
 
   ngAfterViewInit() {
+    this.physicsEngine.gravity.y = 0.05;
+
     this.renderCanvas();
   }
 
@@ -213,7 +221,21 @@ export class AppComponent implements AfterViewInit{
    */
   renderGame(ballObj: PIXI.Graphics, pegs: Peg[], pointContainers: PointContainer[], canvas: PIXI.Application) {
     const ballBounds = ballObj.getBounds();
-    
+
+    if(this.useMatterPhysicsEngine)
+    {
+      // Create a Matter.js body for the ball
+      this.ballObjectBoundry = Matter.Bodies.circle(ballObj.x, ballObj.y, ballBounds.width / 2, { restitution: 0.9, friction: 0 });
+      Matter.World.add(this.engineWorld, this.ballObjectBoundry);
+
+      pegs.forEach(peg => {
+        const pegBoundry = Matter.Bodies.circle(peg.x, peg.y, peg.renderObject.getBounds().width / 2 , { isStatic: true });
+        Matter.World.add(this.engineWorld, pegBoundry);
+      })
+
+      //Matter.Runner.run(this.physicsEngine);
+    }
+
     canvas.ticker.add((delta) => {
 
       // Determine if the ball should decend down the stage
@@ -226,6 +248,12 @@ export class AppComponent implements AfterViewInit{
       {
         return;
       }
+      
+      if(this.useMatterPhysicsEngine && this.ballObjectBoundry)
+      {
+        this.renderMatterPhysicsTicker(ballObj, pointContainers, this.ballObjectBoundry);
+        return;
+      }
 
       const collidedWithPeg = this.checkCollisionWithPeg(ballObj, pegs);
       if(collidedWithPeg)
@@ -234,16 +262,44 @@ export class AppComponent implements AfterViewInit{
         this.applyBallXShift(ballObj, canvas.stage.width);
       }
 
-      const collidingPointContainer = this.checkCollisionWithContainers(ballObj, pointContainers);
-
-      if(collidingPointContainer){
-        this.allowBallMovement = false;
-        ballObj.position.y = collidingPointContainer.endYPos - this.pointContainerThickness - (ballBounds.height / 2);
-        this.scorePlayer(collidingPointContainer);
-      }
+      this.checkPointContainerCollision(ballObj, pointContainers);
 
       ballObj.position.y += 1;
     });
+
+    if(this.useMatterPhysicsEngine)
+    {
+      Matter.Runner.run(this.physicsEngine);
+    }
+  }
+
+  /**
+   * Renders the logic to move the PIXI ball graphic based on the Matter boundry object
+   * @param ballObj 
+   * @param pointContainers 
+   * @returns 
+   */
+  renderMatterPhysicsTicker(ballObj: PIXI.Graphics, pointContainers: PointContainer[], boundryBall: Matter.Body) {
+    ballObj.position.set(boundryBall.position.x, boundryBall.position.y);
+
+    this.checkPointContainerCollision(ballObj, pointContainers);
+    return;
+  }
+
+  /**
+   * Checks if the given ball object is colliding with at least on of the given point containers
+   * @param ballObj The PIXI Grahphics ball object
+   * @param pointContainers An array of point containers
+   */
+  checkPointContainerCollision(ballObj: PIXI.Graphics, pointContainers: PointContainer[])
+  {
+    const collidingPointContainer = this.checkCollisionWithContainers(ballObj, pointContainers);
+
+    if(collidingPointContainer){
+      this.allowBallMovement = false;
+      ballObj.position.y = collidingPointContainer.endYPos - this.pointContainerThickness - (ballObj.getBounds().height / 2);
+      this.scorePlayer(collidingPointContainer);
+    }
   }
 
   /**
@@ -360,7 +416,18 @@ export class AppComponent implements AfterViewInit{
 
     this.playerScoreBalance -= this.playCost;
     this.allowBallMovement = true;
-    this.ballObject.position.set(this.chosenLayoutType == LayoutType.Grid ? getRandomNumber(this.leftPadding, canavasWidth - this.rightPadding) : canavasWidth / 2, 10);
+
+    const newXPos = this.chosenLayoutType == LayoutType.Grid ? getRandomNumber(this.leftPadding, canavasWidth - this.rightPadding) : canavasWidth / 2;
+
+    if(this.useMatterPhysicsEngine && this.ballObjectBoundry)
+    {
+      this.renderCanvas();
+      this.allowBallMovement = true;
+      return;
+    }
+
+    this.ballObject.position.set(newXPos, 10);
+    this.allowBallMovement = true;
   }
 
   /**
@@ -387,6 +454,15 @@ export class AppComponent implements AfterViewInit{
     }
 
     this.selectExpectedOutcome();
+  }
+
+  /**
+   * Changes the physics calculations used to either MatterJs or custom calculations
+   */
+  changePhysicsCalculations() {
+    this.useMatterPhysicsEngine = !this.useMatterPhysicsEngine;
+    this.allowBallMovement = false;
+    this.renderCanvas();
   }
 
   //#endregion

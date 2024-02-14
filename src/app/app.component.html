@@ -12,6 +12,10 @@
             True Random outcome?
             <input type="checkbox" [checked]="chooseBallFallDirectionAtRandom" (click)="changeRandomness()">
         </div>
+        <div>
+            Use physics engine (MatterJS)?
+            <input type="checkbox" [checked]="useMatterPhysicsEngine" (click)="changePhysicsCalculations()">
+        </div>
         <ng-container *ngIf="chooseBallFallDirectionAtRandom; else predetermined">
             <div>
                 The expected winner is going to be random

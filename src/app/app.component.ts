@@ -16,10 +16,6 @@ export class AppComponent implements AfterViewInit{
   @ViewChild('canavs') canvas: any;
   canavasHeightForGrid: number = 400;
   canavasWidthForGrid: number = 800;
-  canavasHeightForPyramid: number = 450;
-  canavasWidthForPyramid: number = 380;
-  chooseBallFallDirectionAtRandom: boolean = false;
-  chosenLayoutType: LayoutType = LayoutType.Grid;
 
   playerScoreBalance: number = 100;
   playCost: number = 10;
@@ -39,7 +35,6 @@ export class AppComponent implements AfterViewInit{
   ballColour: string = 'red';
   allowBallMovement: boolean = false;
   ballObject: PIXI.Graphics = new PIXI.Graphics();
-  lastPegCollision!: Peg;
 
   physicsEngine: Matter.Engine = Matter.Engine.create();
   engineWorld: Matter.World = this.physicsEngine.world;
@@ -59,13 +54,13 @@ export class AppComponent implements AfterViewInit{
    * Initialized and renders the starting state of the canvas
    */
   renderCanvas() {
-    const canavasHeight = this.chosenLayoutType == LayoutType.Grid ? this.canavasHeightForGrid : this.canavasHeightForPyramid;
-    const canavasWidth = this.chosenLayoutType == LayoutType.Grid ? this.canavasWidthForGrid : this.canavasWidthForPyramid;
+    const canavasHeight = this.canavasHeightForGrid;
+    const canavasWidth = this.canavasWidthForGrid;
 
     const app = new PIXI.Application({height: canavasHeight, width: canavasWidth});
     this.canvas.nativeElement.replaceChildren(app.view);
 
-    const pegs = this.chosenLayoutType == LayoutType.Grid ? this.generateGridPegs(this.leftPadding, canavasWidth - this.rightPadding, this.topPadding, canavasHeight - this.bottomPadding, 18, 12, app) : this.generatePegsVerticalPyramid(10, canavasWidth, app);
+    const pegs = this.generateGridPegs(this.leftPadding, canavasWidth - this.rightPadding, this.topPadding, canavasHeight - this.bottomPadding, 18, 12, app);
     this.pointContainers = this.generatePointContainers(canavasHeight, canavasWidth, this.pointContainerValues, app);
     this.ballObject = this.generateBall(canavasWidth, 10, app);
 
@@ -100,32 +95,6 @@ export class AppComponent implements AfterViewInit{
     }
   
     return this.renderPegs(allPegs.flatMap(x => x), canvas);
-  }
-
-  /**
-   * Generates the pegs in a pryamid-like pattern on the given canvas using the given params
-   * @param rows The total number of rows of pegs to render
-   * @param canvasWidth 
-   * @param app 
-   * @returns 
-   */
-  generatePegsVerticalPyramid(rows: any, canvasWidth: number, app: PIXI.Application) {
-    const pegRadius = 8;
-    let pegs = [];
-    let spacing = canvasWidth / (rows * 2 + 1);
-    let startY = 50;
-
-    for (let i = 0; i < rows; i++) {
-        let startX = (canvasWidth - (i * (pegRadius * 2 + spacing))) / 2;
-
-        for (let j = 0; j <= i; j++) {
-            const x = startX + j * (pegRadius * 2 + spacing);
-            const y = startY + i * (pegRadius * 2 + spacing);
-            pegs.push(new Peg(x, y, new PIXI.Graphics()));
-        }
-    }
-
-    return this.renderPegs(pegs, app);
   }
 
   /**
@@ -205,7 +174,7 @@ export class AppComponent implements AfterViewInit{
       ballObj.beginFill(this.ballColour)
         .drawCircle(0, 0, ballRadius); // NB: Setting the anchor positioning of the object affects its position so set it to 0,0 - top left
 
-        ballObj.position.set(this.chosenLayoutType == LayoutType.Grid ? getRandomNumber(this.leftPadding, canavasWidth - this.rightPadding) : canavasWidth / 2, startingYPos);
+        ballObj.position.set(getRandomNumber(this.leftPadding, canavasWidth - this.rightPadding), startingYPos);
 
         canvas.stage.addChild(ballObj);
         return ballObj
@@ -230,7 +199,7 @@ export class AppComponent implements AfterViewInit{
       Matter.World.add(this.engineWorld, pegBoundry);
     })
 
-    canvas.ticker.add((delta) => {
+    canvas.ticker.add(() => {
 
       // Determine if the ball should decend down the stage
       if(!this.allowBallMovement)
@@ -249,16 +218,7 @@ export class AppComponent implements AfterViewInit{
         return;
       }
 
-      const collidedWithPeg = this.checkCollisionWithPeg(ballObj, pegs);
-      if(collidedWithPeg)
-      {
-        this.lastPegCollision = collidedWithPeg;
-        this.applyBallXShift(ballObj, canvas.stage.width);
-      }
-
       this.checkPointContainerCollision(ballObj, pointContainers);
-
-      ballObj.position.y += 1;
     });
 
     Matter.Runner.run(this.physicsEngine);
@@ -292,92 +252,6 @@ export class AppComponent implements AfterViewInit{
       this.scorePlayer(collidingPointContainer);
     }
   }
-
-  /**
-   * Generate a weighted selection to identify which of the point values to select for the ball to land on
-   * @param values The list if point values to use for the selection process
-   * @returns The index to select the appropriate point container
-   */
-  weightedRandomSelection(values: number[]) {
-    const maxNumberToDisfavour = 4;
-    // Calculate total weight based on the inverse of value, favoring values less than 4
-    const totalWeight = values.reduce((acc: number, value: number) => acc + (1 / (value + 1)) * (value < maxNumberToDisfavour ? 2 : 0.5), 0);
-
-    // Generate a random number between 0 and totalWeight
-    const random = Math.random() * totalWeight;
-
-    // Iterate over the values and select one based on the random number
-    let sum = 0;
-    for (const [i, value] of values.entries()) {
-        sum += (1 / (value + 1)) * (value < maxNumberToDisfavour ? 2 : 0.5);
-        
-        if (random <= sum) {
-            return i;
-        }
-    }
-
-    // This should never be reached, but in case of some edge cases, return the last value
-    return values.length - 1;
-  }
-
-  /**
-   * Select and return the expected point container for the ball to land into from the list of point containers
-   * @returns 
-   */
-  getExpectedWinningPointContainer() {
-    const selectedIndex = this.weightedRandomSelection(this.pointContainerValues);
-
-   return this.pointContainers[selectedIndex];
-  }
-  
-  /**
-   * Generates and applies horizontal movement to the given ball object to simulate the ball hitting a peg
-   * @param ballObj The ball object to apply the movement onto
-   * @param canvasWidth The width of the canvas to ensure the ball doesn't fall off the screen
-   */
-  applyBallXShift(ballObj: PIXI.Graphics, canvasWidth: number) {
-    let ballBounds = ballObj.getBounds();
-    let shiftDistance = ballBounds.width * (Math.random() < 0.5 ? -1 : 1);
-
-    if(!this.chooseBallFallDirectionAtRandom && this.expectedWinningPointContainer != null) {
-      const expectedWinningContainerXCenter = this.expectedWinningPointContainer.startXPos + (this.expectedWinningPointContainer.renderObject.getBounds().width / 2)
-      if(ballObj.position.x < expectedWinningContainerXCenter)
-      {
-        shiftDistance = ballBounds.width;
-      }
-      else if(ballObj.position.x > expectedWinningContainerXCenter)
-      {
-        shiftDistance = -ballBounds.width;
-      }
-    }
-    
-    
-    if(ballObj.position.x + shiftDistance + ballBounds.width <= 0 || ballObj.position.x + shiftDistance + ballBounds.width >= canvasWidth)
-    {
-      shiftDistance = shiftDistance * -1;
-    }
-    ballObj.position.x = ballObj.position.x + shiftDistance;
-  }
-
-  /**
-   * The helper method to set the expect point container if the ball randomness setting is turned off
-   * @returns 
-   */
-  selectExpectedOutcome() {
-    if(this.chooseBallFallDirectionAtRandom)
-    {
-      return;
-    }
-    
-    // If there is an old expected point container then reset its text colour
-    if(this.expectedWinningPointContainer)
-    {
-      this.expectedWinningPointContainer.textRenderObject.style.fill = this.containerColour;
-    }
-
-    this.expectedWinningPointContainer = this.getExpectedWinningPointContainer();
-    this.expectedWinningPointContainer.textRenderObject.style.fill = this.expectedPointContainerTextColour;
-  }
   //#endregion
 
 
@@ -402,13 +276,10 @@ export class AppComponent implements AfterViewInit{
       return;
     }
 
-    this.selectExpectedOutcome();
-    const canavasWidth = this.chosenLayoutType == LayoutType.Grid ? this.canavasWidthForGrid : this.canavasWidthForPyramid;
-
     this.playerScoreBalance -= this.playCost;
     this.allowBallMovement = true;
 
-    const newXPos = this.chosenLayoutType == LayoutType.Grid ? getRandomNumber(this.leftPadding, canavasWidth - this.rightPadding) : canavasWidth / 2;
+    const newXPos = getRandomNumber(this.leftPadding, this.canavasWidthForGrid - this.rightPadding);
 
     if(this.ballObjectBoundry)
     {
@@ -420,49 +291,10 @@ export class AppComponent implements AfterViewInit{
     this.ballObject.position.set(newXPos, 10);
     this.allowBallMovement = true;
   }
-
-  /**
-   * Changes the layout of the pegs and causes the canvas to re-render said pegs in said layout
-   * @param type 
-   */
-  changeLayout(type: LayoutType) {
-    this.chosenLayoutType = type;
-    this.renderCanvas();
-  }
-
-  /**
-   * Change the randomness setting to determine if a predetermined point container is chosen
-   * @returns 
-   */
-  changeRandomness() {
-    this.chooseBallFallDirectionAtRandom = !this.chooseBallFallDirectionAtRandom;
   
-    if(this.chooseBallFallDirectionAtRandom && this.expectedWinningPointContainer)
-    {
-      this.expectedWinningPointContainer.textRenderObject.style.fill = this.containerColour;
-      this.expectedWinningPointContainer = undefined;
-      return;
-    }
-
-    this.selectExpectedOutcome();
-  }
-
   //#endregion
 
   //#region PixiJS collision detection methods
-
-  /**
-   * A helper function to check if the ball as collided with a peg
-   * @param ballObj The ball object
-   * @param pegs An array of pegs to check against
-   * @returns The peg (if any) that the ball collided with
-   */
-  checkCollisionWithPeg(ballObj: PIXI.Graphics, pegs: Peg[])
-  {
-    return pegs.find(peg => {
-      return this.checkCollisionWithObject(ballObj, peg.renderObject) && peg != this.lastPegCollision;
-    });
-  }
 
   /**
    * A helper function to check if the ball as collided with a point container

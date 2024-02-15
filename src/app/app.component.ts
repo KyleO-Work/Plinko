@@ -19,7 +19,6 @@ export class AppComponent implements AfterViewInit{
   canavasHeightForPyramid: number = 450;
   canavasWidthForPyramid: number = 380;
   chooseBallFallDirectionAtRandom: boolean = false;
-  useMatterPhysicsEngine: boolean = false;
   chosenLayoutType: LayoutType = LayoutType.Grid;
 
   playerScoreBalance: number = 100;
@@ -222,19 +221,14 @@ export class AppComponent implements AfterViewInit{
   renderGame(ballObj: PIXI.Graphics, pegs: Peg[], pointContainers: PointContainer[], canvas: PIXI.Application) {
     const ballBounds = ballObj.getBounds();
 
-    if(this.useMatterPhysicsEngine)
-    {
-      // Create a Matter.js body for the ball
-      this.ballObjectBoundry = Matter.Bodies.circle(ballObj.x, ballObj.y, ballBounds.width / 2, { restitution: 0.9, friction: 0 });
-      Matter.World.add(this.engineWorld, this.ballObjectBoundry);
+    // Create a Matter.js body for the ball
+    this.ballObjectBoundry = Matter.Bodies.circle(ballObj.x, ballObj.y, ballBounds.width / 2, { restitution: 0.9, friction: 0 });
+    Matter.World.add(this.engineWorld, this.ballObjectBoundry);
 
-      pegs.forEach(peg => {
-        const pegBoundry = Matter.Bodies.circle(peg.x, peg.y, peg.renderObject.getBounds().width / 2 , { isStatic: true });
-        Matter.World.add(this.engineWorld, pegBoundry);
-      })
-
-      //Matter.Runner.run(this.physicsEngine);
-    }
+    pegs.forEach(peg => {
+      const pegBoundry = Matter.Bodies.circle(peg.x, peg.y, peg.renderObject.getBounds().width / 2 , { isStatic: true });
+      Matter.World.add(this.engineWorld, pegBoundry);
+    })
 
     canvas.ticker.add((delta) => {
 
@@ -249,7 +243,7 @@ export class AppComponent implements AfterViewInit{
         return;
       }
       
-      if(this.useMatterPhysicsEngine && this.ballObjectBoundry)
+      if(this.ballObjectBoundry)
       {
         this.renderMatterPhysicsTicker(ballObj, pointContainers, this.ballObjectBoundry);
         return;
@@ -267,10 +261,7 @@ export class AppComponent implements AfterViewInit{
       ballObj.position.y += 1;
     });
 
-    if(this.useMatterPhysicsEngine)
-    {
-      Matter.Runner.run(this.physicsEngine);
-    }
+    Matter.Runner.run(this.physicsEngine);
   }
 
   /**
@@ -419,7 +410,7 @@ export class AppComponent implements AfterViewInit{
 
     const newXPos = this.chosenLayoutType == LayoutType.Grid ? getRandomNumber(this.leftPadding, canavasWidth - this.rightPadding) : canavasWidth / 2;
 
-    if(this.useMatterPhysicsEngine && this.ballObjectBoundry)
+    if(this.ballObjectBoundry)
     {
       this.renderCanvas();
       this.allowBallMovement = true;
@@ -454,15 +445,6 @@ export class AppComponent implements AfterViewInit{
     }
 
     this.selectExpectedOutcome();
-  }
-
-  /**
-   * Changes the physics calculations used to either MatterJs or custom calculations
-   */
-  changePhysicsCalculations() {
-    this.useMatterPhysicsEngine = !this.useMatterPhysicsEngine;
-    this.allowBallMovement = false;
-    this.renderCanvas();
   }
 
   //#endregion

@@ -5,22 +5,9 @@
         <div>Player's balance: {{playerScoreBalance}}</div>
         <div>
             <button (click)="startGame()" [disabled]="playerScoreBalance - playCost < 0">Play</button>
-            <button (click)="changeLayout(0)">Grid layout</button>
-            <button (click)="changeLayout(1)">Pyramid layout</button>
         </div>
         <div>
-            True Random outcome?
-            <input type="checkbox" [checked]="chooseBallFallDirectionAtRandom" (click)="changeRandomness()">
+            The expected winner is set to true randomnes
         </div>
-        <ng-container *ngIf="chooseBallFallDirectionAtRandom; else predetermined">
-            <div>
-                The expected winner is going to be random
-            </div>
-        </ng-container>
-        <ng-template #predetermined>
-            <div>
-                The expected winner is: {{expectedWinningPointContainer?.value}}
-            </div>
-        </ng-template>
     </div>
 </div>
